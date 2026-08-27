@@ -1,0 +1,1 @@
+{"turn_id":1,"violation_type":"STEALTH_TEXT_COERCION","payload_summary":"Zero-contrast hidden text payload injected in DOM node #42","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","hash":"62fb79fe30f593a2db159f0da357be06d3f0e749cdaf1b7e821575bffffb4c9c","created_at":"2026-08-27T02:11:15.921733983+00:00"}
