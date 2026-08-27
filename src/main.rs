@@ -5,6 +5,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::thread;
 use std::time::Duration;
+use std::env;
 use chrono::Utc;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -31,7 +32,7 @@ impl VaultLedger {
         let mut ledger = Self {
             secret_key: secret.as_bytes().to_vec(),
             ledger_file: ledger_path.to_string(),
-            last_hash: "0".repeat(64), // Genesis hash
+            last_hash: "0".repeat(64),
             turn_counter: 0,
         };
         ledger.load_latest_hash();
@@ -56,11 +57,9 @@ impl VaultLedger {
         self.turn_counter += 1;
         let timestamp = Utc::now().to_rfc3339();
 
-        // Construct message to sign: turn_id + violation + payload + prev_hash
         let message = format!("{}:{}:{}:{}", self.turn_counter, violation_type, payload, self.last_hash);
 
-        // Compute HMAC-SHA256
-        let mut mac = HmacSha256::new_from_slice(&self.secret_key).expect("HMAC can take key of any size");
+        let mut mac = HmacSha256::new_from_slice(&self.secret_key).expect("HMAC key error");
         mac.update(message.as_bytes());
         let result = mac.finalize();
         let current_hash = hex::encode(result.into_bytes());
@@ -74,7 +73,6 @@ impl VaultLedger {
             created_at: timestamp,
         };
 
-        // Append to immutable ledger file
         let serialized = serde_json::to_string(&record).unwrap();
         let mut file = OpenOptions::new()
             .create(true)
@@ -89,21 +87,12 @@ impl VaultLedger {
 }
 
 fn main() {
-    println!("[*] Initializing GLASS MOUTH Sovereign Vault Ledger...");
-    
-    // Initialize vault with a local secure secret
+    let args: Vec<String> = env::args().collect();
+    let violation = args.get(1).map(|s| s.as_str()).unwrap_or("UNKNOWN_VIOLATION");
+    let payload = args.get(2).map(|s| s.as_str()).unwrap_or("No payload summary provided");
+
     let mut vault = VaultLedger::new("SUTTON_STANDARD_SECRET_KEY", "vault_audit_ledger.ndjson");
-
-    // Simulate intercepting an adversarial payload (DOM-bomb / Prompt Injection)
-    let violation = "STEALTH_TEXT_COERCION";
-    let payload = "Zero-contrast hidden text payload injected in DOM node #42";
-
-    println!("[*] Intercepted payload. Enforcing 2000ms clock gate & cryptographic chain...");
     let record = vault.record_violation(violation, payload);
 
-    println!("[+] VIOLATION LOGGED & CHAINED:");
-    println!("    - Turn ID: {}", record.turn_id);
-    println!("    - Type: {}", record.violation_type);
-    println!("    - Prev Hash: {}", record.prev_hash);
-    println!("    - Current Hash: {}", record.hash);
+    println!("[+] VAULT ANCHOR COMMITTED [Turn ID: {} | Hash: {}]", record.turn_id, &record.hash[..16]);
 }
